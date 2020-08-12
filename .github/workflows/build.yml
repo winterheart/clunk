@@ -1,0 +1,28 @@
+name: build
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+#          - { os: macos-latest, cc: "clang", cxx: "clang++" }
+          - { os: ubuntu-latest, cc: "gcc", cxx: "g++" }
+          - { os: ubuntu-latest, cc: "clang", cxx: "clang++" }
+#          - { os: windows-latest, cxx: "cl" }
+    runs-on: ${{ matrix.config.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.1.1
+      - name: Install dependencies
+        run: |
+          apt install -y libsdl2-dev
+      - name: Build with CMake in ${{ matrix.config.os }} with ${{ matrix.config.cc }} / ${{ matrix.config.cxx }}
+        env:
+          CC: ${{ matrix.config.cc }}
+          CXX: ${{ matrix.config.cxx }}
+        run: |
+          cmake -B cmake_build -DWITH_SDL=SDL2 -DWITH_SSE=ON
+          cmake --build cmake_build -j2 -v
