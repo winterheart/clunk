@@ -8,21 +8,20 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { os: macos-latest, cc: "clang", cxx: "clang++", build_type: "Release" }
-          - { os: ubuntu-latest, cc: "gcc", cxx: "g++", build_type: "Release" }
-          - { os: ubuntu-latest, cc: "clang", cxx: "clang++", build_type: "Release" }
-#          - { os: windows-latest, cc: "???", cxx: "cl", build_type: "Release" }
+          - { os: macos-latest, cc: 'clang', cxx: 'clang++', build_type: 'Release' }
+          - { os: ubuntu-latest, cc: 'gcc', cxx: 'g++', build_type: 'Release' }
+          - { os: ubuntu-latest, cc: 'clang', cxx: "clang++", build_type: 'Release' }
+#          - { os: windows-latest, cc: '???', cxx: 'cl', build_type: 'Release' }
     runs-on: ${{ matrix.config.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2.1.1
-      - name: Install dependencies (${{ matrix.config.os }})
-        if: ${{ matrix.config.os }} == "macos-latest"
+      - name: Install dependencies (macos)
         run: brew install sdl2
-      - name: Install dependencies (${{ matrix.config.os }})
-        if: ${{ matrix.config.os }} == "ubuntu-latest"
+        if: matrix.config.os == 'macos-latest'
+      - name: Install dependencies (ubuntu)
         run: sudo apt-get install -y libsdl2-dev
-
+        if: matrix.config.os == 'ubuntu-latest'
       - name: Build with CMake in ${{ matrix.config.os }} with ${{ matrix.config.cc }} / ${{ matrix.config.cxx }}
         env:
           CC: ${{ matrix.config.cc }}
