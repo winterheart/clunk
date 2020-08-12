@@ -1,37 +1,41 @@
-project(clunk)
-cmake_minimum_required(VERSION 2.6)
-set(CMAKE_USE_RELATIVE_PATHS TRUE)
+cmake_minimum_required(VERSION 3.3)
+project(clunk LANGUAGES C CXX VERSION 1.3)
 
-option(BUILD_TEST "Build simple test application" false)
-option(WITH_SSE "Use highly optimized SSE FFT/MDCT routines" false)
-option(WITH_SDL "Use SDL backend" false)
-option(WITH_SDL2 "Use SDL2 backend" true)
+set(CMAKE_USE_RELATIVE_PATHS ON)
+set(CMAKE_CXX_STANDARD 11)
 
-if (WITH_SDL2)
+include(GNUInstallDirs)
+
+option(BUILD_TEST "Build simple test application" OFF)
+option(WITH_SSE "Use highly optimized SSE FFT/MDCT routines" OFF)
+option(BUILD_STATIC "Build static library" OFF)
+
+set(WITH_SDL SDL2 CACHE STRING "Enable SDL/SDL2 backend")
+set_property(CACHE WITH_SDL PROPERTY STRINGS SDL SDL2 OFF)
+
+if (WITH_SDL STREQUAL "SDL2")
 	message(STATUS "building with SDL2 support...")
 	find_package(SDL2 REQUIRED)
-elseif (WITH_SDL)
+	include_directories(${SDL2_INCLUDE_DIRS})
+	set(LIBRARIES ${SDL2_LIBRARIES})
+elseif (WITH_SDL STREQUAL "SDL")
 	message(STATUS "building with SDL1 support...")
 	find_package(SDL REQUIRED)
+	include_directories(${SDL_INCLUDE_DIR})
+	set(LIBRARIES ${SDL_LIBRARY})
 endif()
 
-set (CMAKE_CXX_STANDARD 11)
-set(clunk_VERSION_MAJOR 1)
-set(clunk_VERSION_MINOR 3)
-
 message(STATUS "build type: ${CMAKE_BUILD_TYPE}")
-if (${CMAKE_BUILD_TYPE} MATCHES Debug)
+if(${CMAKE_BUILD_TYPE} MATCHES Debug)
 	add_definitions(-DDEBUG)
+	add_definitions(-ggdb -Wall -pedantic -Wno-unused-variable)
 endif (${CMAKE_BUILD_TYPE} MATCHES Debug)
 
-if (CMAKE_CXX_COMPILER MATCHES ".*clang")
-	set(CMAKE_COMPILER_IS_CLANGXX 1)
-endif ()
-
-if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_COMPILER_IS_CLANGXX)
-	add_definitions(-ggdb -Wall -pedantic -Wno-unused-variable)
-	set(CMAKE_CXX_FLAGS "-fvisibility=hidden -fvisibility-inlines-hidden -DGCC_HASCLASSVISIBILITY=1")
-endif (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_COMPILER_IS_CLANGXX)
+if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU" OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+	set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+	set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
+	add_definitions("-DGCC_HASCLASSVISIBILITY=1")
+endif()
 
 if(WIN32)
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS -D_WINDOWS)
@@ -39,13 +43,6 @@ endif(WIN32)
 
 add_definitions(-DCLUNKAPI=DLLEXPORT)
 set(CMAKE_INCLUDE_CURRENT_DIR TRUE)
-if (SDL_FOUND)
-	include_directories(${SDL_INCLUDE_DIR})
-endif()
-
-if (SDL2_FOUND)
-	include_directories(${SDL2_INCLUDE_DIRS})
-endif()
 
 set(SOURCES
 	clunk/buffer.cpp
@@ -62,14 +59,6 @@ set(SOURCES
 	clunk/wav_file.cpp
 #	clunk/clunk_c.cpp
 )
-
-if (SDL_FOUND OR SDL2_FOUND)
-	set(CLUNK_BACKEND_SDL 1)
-	list(APPEND SOURCES
-		clunk/backend/sdl/sdl_ex.cpp
-		clunk/backend/sdl/backend.cpp
-	)
-endif ()
 
 set(PUBLIC_HEADERS
 	clunk/buffer.h
@@ -97,13 +86,18 @@ set(PUBLIC_HEADERS
 )
 
 if (SDL_FOUND OR SDL2_FOUND)
+	set(CLUNK_BACKEND_SDL 1)
+	list(APPEND SOURCES
+		clunk/backend/sdl/sdl_ex.cpp
+		clunk/backend/sdl/backend.cpp
+	)
 	list(APPEND PUBLIC_HEADERS
 		clunk/backend/sdl/backend.h
 	)
 endif ()
 
 if (WITH_SSE)
-	set(SOURCES ${SOURCES} clunk/sse_fft_context.cpp)
+	list(APPEND SOURCES clunk/sse_fft_context.cpp)
 	set(CLUNK_USES_SSE 1)
 endif(WITH_SSE)
 
@@ -115,26 +109,22 @@ add_library(clunk SHARED
 
 target_include_directories(clunk PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 target_include_directories(clunk PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(clunk ${LIBRARIES})
 
-add_library(clunk-static STATIC
-	${SOURCES}
-)
-target_include_directories(clunk-static PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_include_directories(clunk-static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+if(BUILD_STATIC)
+	add_library(clunk-static STATIC
+		${SOURCES}
+	)
 
-install(TARGETS clunk DESTINATION lib)
+	target_include_directories(clunk-static PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+	target_include_directories(clunk-static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
+
+install(TARGETS clunk)
 install(FILES ${PUBLIC_HEADERS} DESTINATION include/clunk)
 
-if (SDL_FOUND)
-    target_link_libraries(clunk ${SDL_LIBRARY})
-endif (SDL_FOUND)
-
-if (SDL2_FOUND)
-    target_link_libraries(clunk ${SDL2_LIBRARIES})
-endif (SDL2_FOUND)
-
 if(BUILD_TEST)
-	if (NOT SDL_FOUND AND NOT SDL2_FOUND)
+	if (WITH_SDL STREQUAL "OFF")
 		message(FATAL_ERROR "you need SDL library to build test")
 	endif ()
 
