@@ -8,7 +8,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
-#          - { os: macos-latest, cc: "clang", cxx: "clang++", build_type: "Release" }
+          - { os: macos-latest, cc: "clang", cxx: "clang++", build_type: "Release" }
           - { os: ubuntu-latest, cc: "gcc", cxx: "g++", build_type: "Release" }
           - { os: ubuntu-latest, cc: "clang", cxx: "clang++", build_type: "Release" }
 #          - { os: windows-latest, cc: "???", cxx: "cl", build_type: "Release" }
@@ -17,8 +17,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.1.1
       - name: Install dependencies
-        run: |
-          sudo apt-get install -y libsdl2-dev
+        - if: matrix.config.os == "ubuntu-latest"
+          run: sudo apt-get install -y libsdl2-dev
+        - if: matrix.config.os == "macos-latest"
+          run: brew install sdl2
+
       - name: Build with CMake in ${{ matrix.config.os }} with ${{ matrix.config.cc }} / ${{ matrix.config.cxx }}
         env:
           CC: ${{ matrix.config.cc }}
